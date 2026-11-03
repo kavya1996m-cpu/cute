@@ -3,6 +3,7 @@
 const express = require("express");
 const helmet = require("helmet");
 const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -16,10 +17,22 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'"],
-        imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"],
+
+        // NEW: Allow Cloudflare Turnstile to load its verification script.
+        scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
+
+        // NEW: Allow inline styles required by the Turnstile widget.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+
+        // NEW: Allow Turnstile verification-related images.
+        imgSrc: ["'self'", "data:", "https://challenges.cloudflare.com"],
+
+        // NEW: Allow browser requests required by Turnstile.
+        connectSrc: ["'self'", "https://challenges.cloudflare.com"],
+
+        // NEW: Allow the Turnstile challenge iframe.
+        frameSrc: ["https://challenges.cloudflare.com"],
+
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'none'"]
@@ -83,6 +96,10 @@ app.post("/api/contact", (req, res) => {
     })
   );
 
+  // NEW: Cloudflare Worker is responsible for validating the Turnstile token
+  // through Cloudflare Siteverify before forwarding requests to this endpoint.
+  // No Siteverify call or Turnstile secret is required in this application.
+
   // Phase 1: Validate only.
   // Phase 2: Add Turnstile verification before processing.
   // Phase 3: Connect an email provider or durable storage.
@@ -124,8 +141,6 @@ app.use((err, req, res, next) => {
     message: "An unexpected error occurred."
   });
 });
-
-const crypto = require("crypto");
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Contact form server listening on port ${PORT}`);
